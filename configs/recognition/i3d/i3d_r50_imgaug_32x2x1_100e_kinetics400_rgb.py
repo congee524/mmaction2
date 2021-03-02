@@ -10,11 +10,17 @@ data_root_val = 'data/kinetics400/rawframes_val'
 ann_file_train = 'data/kinetics400/kinetics400_train_list_rawframes.txt'
 ann_file_val = 'data/kinetics400/kinetics400_val_list_rawframes.txt'
 ann_file_test = 'data/kinetics400/kinetics400_val_list_rawframes.txt'
+
+mc_cfg = dict(
+    server_list_cfg='/mnt/lustre/share/memcached_client/server_list.conf',
+    client_cfg='/mnt/lustre/share/memcached_client/client.conf',
+    sys_path='/mnt/lustre/share/pymc/py3')
+
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_bgr=False)
 train_pipeline = [
     dict(type='SampleFrames', clip_len=32, frame_interval=2, num_clips=1),
-    dict(type='RawFrameDecode'),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='Resize', scale=(-1, 256)),
     dict(
         type='MultiScaleCrop',
@@ -23,13 +29,8 @@ train_pipeline = [
         random_crop=False,
         max_wh_scale_gap=0),
     dict(type='Resize', scale=(224, 224), keep_ratio=False),
-    dict(
-        type='Imgaug',
-        transforms=[
-            dict(type='Fliplr', p=0.5),
-            dict(type='Rotate', rotate=(-20, 20)),
-            dict(type='Dropout', p=(0, 0.05))
-        ]),
+    dict(type='Flip', flip_ratio=0.5),
+    dict(type='Imgaug', transforms='default'),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='FormatShape', input_format='NCTHW'),
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
@@ -42,7 +43,7 @@ val_pipeline = [
         frame_interval=2,
         num_clips=1,
         test_mode=True),
-    dict(type='RawFrameDecode'),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='Resize', scale=(-1, 256)),
     dict(type='CenterCrop', crop_size=224),
     dict(type='Flip', flip_ratio=0),
@@ -58,7 +59,7 @@ test_pipeline = [
         frame_interval=2,
         num_clips=10,
         test_mode=True),
-    dict(type='RawFrameDecode'),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='Resize', scale=(-1, 256)),
     dict(type='ThreeCrop', crop_size=256),
     dict(type='Flip', flip_ratio=0),
@@ -68,7 +69,7 @@ test_pipeline = [
     dict(type='ToTensor', keys=['imgs'])
 ]
 data = dict(
-    videos_per_gpu=8,
+    videos_per_gpu=16,
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
@@ -87,6 +88,13 @@ data = dict(
         pipeline=test_pipeline))
 evaluation = dict(
     interval=5, metrics=['top_k_accuracy', 'mean_class_accuracy'])
+
+# optimizer
+optimizer = dict(
+    type='SGD',
+    lr=0.02,  # this lr is used for 8 gpus
+    momentum=0.9,
+    weight_decay=0.0001)
 
 # runtime settings
 checkpoint_config = dict(interval=5)
