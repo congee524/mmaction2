@@ -103,6 +103,12 @@ total_epochs = 120
 
 # runtime settings
 checkpoint_config = dict(interval=1)
+log_config = dict(
+    interval=2,
+    hooks=[
+        dict(type='TextLoggerHook'),
+        # dict(type='TensorboardLoggerHook'),
+    ])
 work_dir = './work_dirs/slowonly_r50_k400_pretrained_8x8x1_256e_ug2_flow'
 load_from = ('https://download.openmmlab.com/mmaction/recognition/slowonly/'
              'slowonly_r50_8x8x1_256e_kinetics400_flow/'
