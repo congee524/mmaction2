@@ -55,11 +55,10 @@ test_pipeline = [
         clip_len=8,
         frame_interval=8,
         num_clips=1,
-        twice_sample=True,
         test_mode=True),
     dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='Resize', scale=(-1, 256)),
-    dict(type='ThreeCrop', crop_size=256),
+    dict(type='CenterCrop', crop_size=256),
     dict(type='Flip', flip_ratio=0),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='FormatShape', input_format='NCTHW'),
@@ -69,7 +68,6 @@ test_pipeline = [
 data = dict(
     videos_per_gpu=12,
     workers_per_gpu=4,
-    test_dataloader=dict(videos_per_gpu=1),
     train=dict(
         type=dataset_type,
         ann_file=ann_file_train,
