@@ -109,7 +109,7 @@ log_config = dict(
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook'),
     ])
-work_dir = './work_dirs/slowonly_r50_k400_pretrained_8x8x1_256e_ug2_flow'
+work_dir = './work_dirs/slowonly_r50_k400_pretrained_8x8x1_20e_ug2_flow'
 load_from = ('https://download.openmmlab.com/mmaction/recognition/slowonly/'
              'slowonly_r50_8x8x1_256e_kinetics400_flow/'
              'slowonly_r50_8x8x1_256e_kinetics400_flow_20200704-6b384243.pth')
