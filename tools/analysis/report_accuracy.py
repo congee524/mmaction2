@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument(
         '--coefficients',
         nargs='+',
-        type=list,
+        type=float,
         help='coefficients of each score file',
         default=[1.0, 1.0])
     parser.add_argument(
