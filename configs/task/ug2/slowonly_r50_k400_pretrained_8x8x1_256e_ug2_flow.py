@@ -4,17 +4,13 @@ _base_ = [
 
 # model settings
 model = dict(
-    backbone=dict(
-        pretrained=  # noqa: E251
-        'https://download.openmmlab.com/mmaction/recognition/slowonly/slowonly_r50_8x8x1_256e_kinetics400_flow/slowonly_r50_8x8x1_256e_kinetics400_flow_20200704-6b384243.pth',  # noqa: E501
-        in_channels=2,
-        with_pool2=False),
+    backbone=dict(pretrained=None, in_channels=2, with_pool2=False),
     cls_head=dict(num_classes=6))
 
 # dataset settings
 dataset_type = 'RawframeDataset'
-data_root = 'data/UG2_2021-Track2.1/train_rgb_frames'
-data_root_val = 'data/UG2_2021-Track2.1/val_rgb_frames'
+data_root = 'data/UG2_2021-Track2.1/train_flow_frames'
+data_root_val = 'data/UG2_2021-Track2.1/val_flow_frames'
 ann_file_train = 'data/UG2_2021-Track2.1/ug2_train_list_flow.txt'
 ann_file_val = 'data/UG2_2021-Track2.1/ug2_val_list_flow.txt'
 ann_file_test = 'data/UG2_2021-Track2.1/ug2_val_list_flow.txt'
@@ -108,4 +104,7 @@ total_epochs = 120
 # runtime settings
 checkpoint_config = dict(interval=1)
 work_dir = './work_dirs/slowonly_r50_k400_pretrained_8x8x1_256e_ug2_flow'
+load_from = ('https://download.openmmlab.com/mmaction/recognition/slowonly/'
+             'slowonly_r50_8x8x1_256e_kinetics400_flow/'
+             'slowonly_r50_8x8x1_256e_kinetics400_flow_20200704-6b384243.pth')
 find_unused_parameters = False
