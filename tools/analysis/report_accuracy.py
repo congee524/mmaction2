@@ -43,7 +43,7 @@ def main():
 
     weighted_scores = get_weighted_score(score_list, args.coefficients)
     data = open(args.datalist).readlines()
-    labels = [int(x.strip().split()[-1] - 5) for x in data]
+    labels = [int(x.strip().split()[-1]) - 5 for x in data]
 
     mean_class_acc = mean_class_accuracy(weighted_scores, labels)
     top_1_acc, top_5_acc = top_k_accuracy(weighted_scores, labels, (1, 5))
