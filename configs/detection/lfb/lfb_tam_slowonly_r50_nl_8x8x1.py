@@ -1,5 +1,7 @@
+_base_ = ['../_base_/models/slowonly_r50_nl.py']
+
 # model settings
-lfb_prefix_path = 'data/ava/lfb_half'
+lfb_prefix_path = 'data/ava/lfb_slowonly_r50_nl_8x8x1_half'
 max_num_sampled_feat = 5
 window_size = 60
 lfb_channels = 2048
@@ -7,20 +9,7 @@ dataset_modes = ('train', 'val')
 
 # model setting
 model = dict(
-    type='FastRCNN',
-    backbone=dict(
-        type='ResNet3dSlowOnly',
-        depth=50,
-        pretrained=None,
-        pretrained2d=False,
-        lateral=False,
-        num_stages=4,
-        conv1_kernel=(1, 7, 7),
-        conv1_stride_t=1,
-        pool1_stride_t=1,
-        spatial_strides=(1, 2, 2, 1),
-        # norm_cfg=dict(type='SyncBN'),
-        norm_eval=True),
+    backbone=dict(norm_eval=True),
     roi_head=dict(
         type='AVARoIHead',
         bbox_roi_extractor=dict(
@@ -42,9 +31,9 @@ model = dict(
                 type='tam',
                 st_feat_channels=2048,
                 lt_feat_channels=lfb_channels,
-                num_st_feat=4,
+                num_st_feat=8,
                 num_lt_feat=window_size * max_num_sampled_feat,
-                alpha=4,
+                alpha=2,
                 beta=4)),
         bbox_head=dict(
             type='BBoxHeadAVA',
@@ -94,7 +83,7 @@ img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_bgr=False)
 
 train_pipeline = [
-    dict(type='SampleAVAFrames', clip_len=4, frame_interval=16),
+    dict(type='SampleAVAFrames', clip_len=8, frame_interval=8),
     dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='RandomRescale', scale_range=(256, 320)),
     dict(type='RandomCrop', size=256),
@@ -133,8 +122,8 @@ val_pipeline = [
 ]
 
 data = dict(
-    videos_per_gpu=12,
-    workers_per_gpu=4,
+    videos_per_gpu=4,
+    workers_per_gpu=2,
     val_dataloader=dict(videos_per_gpu=1),
     test_dataloader=dict(videos_per_gpu=1),
     train=dict(
@@ -158,7 +147,7 @@ data = dict(
 data['test'] = data['val']
 evaluation = dict(interval=1, save_best='mAP@0.5IOU')
 
-optimizer = dict(type='SGD', lr=0.15, momentum=0.9, weight_decay=1e-05)
+optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=1e-05)
 # this lr is used for 8 gpus
 
 optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
@@ -181,9 +170,11 @@ log_config = dict(
     ])
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/lfb/lfb_tam'  # noqa E501
-load_from = ('https://download.openmmlab.com/mmaction/recognition/slowonly/'
-             'slowonly_r50_4x16x1_256e_kinetics400_rgb/'
-             'slowonly_r50_4x16x1_256e_kinetics400_rgb_20200704-a69556c6.pth')
+work_dir = './work_dirs/lfb/lfb_tam_8x8x1'  # noqa E501
+load_from = (
+    'https://download.openmmlab.com/mmaction/recognition/slowonly/'
+    'slowonly_nl_embedded_gaussian_r50_8x8x1_150e_kinetics400_rgb/'
+    'slowonly_nl_embedded_gaussian_r50_8x8x1_150e_kinetics400_rgb_20210308-e8dd9e82.pth'  # noqa: E501
+)
 resume_from = None
 find_unused_parameters = False

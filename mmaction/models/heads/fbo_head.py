@@ -345,8 +345,9 @@ class FBOHead(nn.Module):
         super().__init__()
         fbo_type = fbo_cfg.pop('type', 'non_local')
         assert fbo_type in FBOHead.fbo_dict
-        assert temporal_pool_type in ['max', 'avg']
-        assert spatial_pool_type in ['max', 'avg']
+        self.fbo_type = fbo_type
+        assert temporal_pool_type in ['max', 'avg', None]
+        assert spatial_pool_type in ['max', 'avg', None]
 
         self.lfb_cfg = copy.deepcopy(lfb_cfg)
         self.fbo_cfg = copy.deepcopy(fbo_cfg)
@@ -357,12 +358,19 @@ class FBOHead(nn.Module):
         # Pool by default
         if temporal_pool_type == 'avg':
             self.temporal_pool = nn.AdaptiveAvgPool3d((1, None, None))
-        else:
+        elif temporal_pool_type == 'max':
             self.temporal_pool = nn.AdaptiveMaxPool3d((1, None, None))
+        else:
+            self.temporal_pool = nn.Identity()
         if spatial_pool_type == 'avg':
             self.spatial_pool = nn.AdaptiveAvgPool3d((None, 1, 1))
-        else:
+        elif spatial_pool_type == 'max':
             self.spatial_pool = nn.AdaptiveMaxPool3d((None, 1, 1))
+        else:
+            self.spatial_pool = nn.Identity()
+
+        self.pool1 = nn.AdaptiveAvgPool3d((1, None, None))
+        self.pool2 = nn.AdaptiveAvgPool3d((1, None, None))
 
     def init_weights(self, pretrained=None):
         """Initialize the weights in the module.
@@ -394,6 +402,10 @@ class FBOHead(nn.Module):
         lt_feat = self.sample_lfb(rois, img_metas).to(st_feat.device)
 
         fbo_feat = self.fbo(st_feat, lt_feat)
+
+        if self.fbo_type == 'tam':
+            identity = self.pool1(identity)
+            fbo_feat = self.pool2(fbo_feat)
 
         out = torch.cat([identity, fbo_feat], dim=1)
         return out

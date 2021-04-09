@@ -35,7 +35,8 @@ class FBOTAM(nn.Module):
             lt_feat_channels,
             num_st_feat,
             num_lt_feat,
-            alpha=4,  # 4 * alpha for slowonly_4x16
+            latent_channels=512,
+            alpha=2,  # 4 * alpha for slowonly_4x16
             adaptive_kernel_size=3,
             beta=4,
             conv1d_kernel_size=3,
@@ -49,6 +50,7 @@ class FBOTAM(nn.Module):
         self.lt_feat_channels = lt_feat_channels
         self.num_st_feat = num_st_feat
         self.num_lt_feat = num_lt_feat
+        self.latent_channels = latent_channels
         self.alpha = alpha
         self.adaptive_kernel_size = adaptive_kernel_size
         self.beta = beta
@@ -56,6 +58,9 @@ class FBOTAM(nn.Module):
         self.adaptive_convolution_stride = adaptive_convolution_stride
         self.adaptive_convolution_padding = adaptive_convolution_padding
         self.init_std = init_std
+
+        self.pre_st = nn.Conv3d(st_feat_channels, latent_channels, 1, 1, 0)
+        self.pre_lt = nn.Conv3d(lt_feat_channels, latent_channels, 1, 1, 0)
 
         self.G = nn.Sequential(
             nn.Linear(num_st_feat, num_st_feat * alpha, bias=False),
@@ -65,20 +70,19 @@ class FBOTAM(nn.Module):
 
         self.L = nn.Sequential(
             nn.Conv1d(
-                lt_feat_channels,
-                lt_feat_channels // beta,
+                latent_channels,
+                latent_channels // beta,
                 conv1d_kernel_size,
                 stride=1,
                 padding=conv1d_kernel_size // 2,
-                bias=False), nn.BatchNorm1d(lt_feat_channels // beta),
+                bias=False), nn.BatchNorm1d(latent_channels // beta),
             nn.ReLU(inplace=True),
-            nn.Conv1d(
-                lt_feat_channels // beta, lt_feat_channels, 1, bias=False),
+            nn.Conv1d(latent_channels // beta, latent_channels, 1, bias=False),
             nn.Sigmoid())
 
-        self.init_weights()
+        # self.init_weights()
 
-    def init_weights(self):
+    def init_weights(self, pretrained=None):
         """Initiate the parameters from scratch."""
         # for m in self.modules():
         #     if isinstance(m, nn.Conv1d):
@@ -101,6 +105,8 @@ class FBOTAM(nn.Module):
         Returns:
             torch.Tensor: The output of the module.
         """
+        st_feat = self.pre_st(st_feat)
+        lt_feat = self.pre_lt(lt_feat)
         st_n, st_c, st_t, st_h, st_w = st_feat.size()
         lt_n, lt_c, lt_t, lt_h, lt_w = lt_feat.size()
 
