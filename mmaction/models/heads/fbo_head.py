@@ -6,7 +6,7 @@ from mmcv.cnn import ConvModule, constant_init, kaiming_init
 from mmcv.runner import load_checkpoint
 from mmcv.utils import _BatchNorm
 
-from mmaction.models.common import LFB
+from mmaction.models.common import FBOTAM, LFB
 from mmaction.utils import get_root_logger
 
 try:
@@ -330,7 +330,12 @@ class FBOHead(nn.Module):
             'max'. Default: 'max'.
     """
 
-    fbo_dict = {'non_local': FBONonLocal, 'avg': FBOAvg, 'max': FBOMax}
+    fbo_dict = {
+        'non_local': FBONonLocal,
+        'avg': FBOAvg,
+        'max': FBOMax,
+        'tam': FBOTAM
+    }
 
     def __init__(self,
                  lfb_cfg,
@@ -380,7 +385,7 @@ class FBOHead(nn.Module):
         return lt_feat.unsqueeze(-1).unsqueeze(-1)
 
     def forward(self, x, rois, img_metas):
-        # [N, C, 1, 1, 1]
+        # [N, C, t, 1, 1]
         st_feat = self.temporal_pool(x)
         st_feat = self.spatial_pool(st_feat)
         identity = st_feat
