@@ -387,6 +387,10 @@ class FBOHead(nn.Module):
         lt_feat_list = []
         for ind in inds:
             lt_feat_list.append(self.lfb[img_metas[ind]['img_key']].to())
+        # for experiment ==================
+        import random
+        random.shuffle(lt_feat_list)
+
         lt_feat = torch.stack(lt_feat_list, dim=0)
         # [N, lfb_channels, window_size * max_num_feat_per_step]
         lt_feat = lt_feat.permute(0, 2, 1).contiguous()
