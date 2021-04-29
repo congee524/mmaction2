@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from einops import rearrange
-from mmcv.cnn import ATTENTION, BaseModule, build_norm_layer
+from mmcv.cnn import (ATTENTION, BaseModule, MultiheadAttention,
+                      build_norm_layer)
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
@@ -33,6 +34,26 @@ class DropPath(nn.Module):
 
     def forward(self, x):
         return drop_path(x, self.drop_prob, self.training)
+
+
+@ATTENTION.register_module()
+class _MultiheadAttention(MultiheadAttention):
+
+    def __init__(self,
+                 embed_dims,
+                 num_heads,
+                 attn_drop=0.,
+                 drop_path=0.,
+                 init_cfg=None,
+                 **kwargs):
+        super().__init__(
+            embed_dims,
+            num_heads,
+            attn_drop=attn_drop,
+            proj_drop=drop_path,
+            init_cfg=init_cfg,
+            **kwargs)
+        self.dropout = DropPath(drop_path)
 
 
 @ATTENTION.register_module()

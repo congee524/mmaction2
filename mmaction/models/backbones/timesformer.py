@@ -74,7 +74,8 @@ class TimeSformer(nn.Module):
                  attention_type='divided_space_time',
                  **kwargs):
         super().__init__(**kwargs)
-        assert attention_type in self.supported_attention_type
+        assert attention_type in self.supported_attention_type, (
+            f'Unsupported Attention Type {self.attention_type}!')
         self.embed_dims = embed_dims
         self.attention_type = attention_type
         self.patch_embed = PatchEmbed(
@@ -126,13 +127,28 @@ class TimeSformer(nn.Module):
                         init_cfg=None),
                     num_layers=12,
                     init_cfg=None)
-            elif self.attention_type == 'space_only':
-                raise NotImplementedError
-            elif self.attention_type == 'joint_space_time':
-                raise NotImplementedError
             else:
-                raise ValueError(
-                    f'Unsupported Attention Type {self.attention_type}!')
+                transformer_layers = dict(
+                    type='TransformerLayerSequence',
+                    transformerlayer=dict(
+                        type='BaseTransformerLayer',
+                        attn_cfg=[
+                            dict(
+                                type='_MultiheadAttention',
+                                embed_dims=embed_dims,
+                                num_heads=8,
+                                attn_drop=0.,
+                                drop_path=0.1)
+                        ],
+                        feedforward_channels=3072,
+                        ffn_dropout=0.,
+                        operation_order=('norm', 'self_attn', 'ffn', 'norm'),
+                        act_cfg=dict(type='ReLU'),
+                        norm_cfg=dict(type='LN'),
+                        ffn_num_fcs=2,
+                        init_cfg=None),
+                    num_layers=12,
+                    init_cfg=None)
         self.transformer_layers = build_transformer_layer_sequence(
             transformer_layers)
 
@@ -147,6 +163,7 @@ class TimeSformer(nn.Module):
         x = x + self.pos_embed
         x = self.drop_after_pos(x)
 
+        # Time Embedding
         if self.attention_type != 'space_only':
             # x [batch_size, num_patches * num_frames + 1, embed_dims]
             x = rearrange(x[:, 1:, :], '(b t) p m -> (b p) t m', b=B)
@@ -156,6 +173,6 @@ class TimeSformer(nn.Module):
             cls_tokens = self.cls_token.expand(B, -1, -1)
             x = torch.cat(cls_tokens, dim=1)
 
-        x = self.transformer(x)
+        x = self.transformer_layers(x)
 
         return x
