@@ -30,6 +30,9 @@ class DividedTemporalAttentionWithNorm(BaseModule):
         self.norm = build_norm_layer(norm_cfg, self.embed_dims)[1]
         self.temporal_fc = nn.Linear(self.embed_dims, self.embed_dims)
 
+        nn.init.constant_(self.temporal_fc.weight, 0)
+        nn.init.constant_(self.temporal_fc.bias, 0)
+
     def forward(self, query, key=None, value=None, residual=None, **kwargs):
         assert residual is None, (
             'Cannot apply pre-norm with DividedTemporalAttentionWithNorm')

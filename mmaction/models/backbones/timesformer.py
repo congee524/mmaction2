@@ -6,6 +6,7 @@ from mmcv.cnn import build_conv_layer, build_norm_layer
 from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
 from torch.nn.modules.utils import _pair
 
+from mmaction.utils import trunc_normal_
 from ..registry import BACKBONES
 
 
@@ -83,7 +84,6 @@ class TimeSformer(nn.Module):
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims))
-
         self.pos_embed = nn.Parameter(
             torch.zeros(1, num_patches + 1, embed_dims))
         self.drop_after_pos = nn.Dropout(p=drop_rate)
@@ -127,7 +127,9 @@ class TimeSformer(nn.Module):
                                 act_cfg=dict(type='GELU'),
                                 dropout_layer=dict(
                                     type='DropPath', drop_prob=0.1)),
-                            operation_order=('self_attn', 'self_attn', 'ffn')),
+                            operation_order=('self_attn', 'self_attn', 'norm',
+                                             'ffn'),
+                            norm_cfg=dict(type='LN')),
                         num_layers=12))
             else:
                 transformer_layers = ConfigDict(
@@ -151,7 +153,8 @@ class TimeSformer(nn.Module):
                                 act_cfg=dict(type='GELU', inplace=True),
                                 dropout_layer=dict(
                                     type='DropPath', drop_prob=0.1)),
-                            operation_order=('norm', 'self_attn', 'ffn'),
+                            operation_order=('norm', 'self_attn', 'norm',
+                                             'ffn'),
                             norm_cfg=dict(type='LN')),
                         num_layers=12))
 
@@ -159,6 +162,9 @@ class TimeSformer(nn.Module):
             transformer_layers)
 
         self.norm = build_norm_layer(norm_cfg, embed_dims)[1]
+
+        trunc_normal_(self.pos_embed, std=.02)
+        trunc_normal_(self.cls_token, std=.02)
 
     def init_weights(self):
         pass
