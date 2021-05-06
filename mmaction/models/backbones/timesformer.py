@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from mmcv import ConfigDict
-from mmcv.cnn import build_conv_layer, build_norm_layer, kaiming_init
+from mmcv.cnn import build_conv_layer, build_norm_layer
 from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
 from torch.nn.modules.utils import _pair
 
@@ -45,12 +45,6 @@ class PatchEmbed(nn.Module):
             embed_dims,
             kernel_size=patch_size,
             stride=patch_size)
-
-        self.init_weights()
-
-    def init_weights(self):
-        # Lecun norm from ClassyVision
-        kaiming_init(self.projection, mode='fan_in', nonlinearity='linear')
 
     def forward(self, x):
         x = rearrange(x, 'b c t h w -> (b t) c h w')
