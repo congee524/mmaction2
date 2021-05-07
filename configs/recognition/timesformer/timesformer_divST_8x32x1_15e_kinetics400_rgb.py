@@ -13,11 +13,11 @@ model = dict(
         drop_rate=0.,
         transformer_layers=None,
         attention_type='divided_space_time',
-        norm_cfg=dict(type='LN')),
+        norm_cfg=dict(type='LN', eps=1e-6)),
     cls_head=dict(type='TimeSformerHead', num_classes=400, in_channels=768),
     # model training and testing settings
     train_cfg=None,
-    test_cfg=dict(average_clips='scores'))
+    test_cfg=dict(average_clips='score'))
 
 # dataset settings
 dataset_type = 'RawframeDataset'
@@ -26,11 +26,19 @@ data_root_val = 'data/kinetics400/rawframes_val'
 ann_file_train = 'data/kinetics400/kinetics400_train_list_rawframes.txt'
 ann_file_val = 'data/kinetics400/kinetics400_val_list_rawframes.txt'
 ann_file_test = 'data/kinetics400/kinetics400_val_list_rawframes.txt'
+# img_norm_cfg = dict(
+#    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_bgr=False)
 img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_bgr=False)
+    mean=[114.75, 114.75, 114.75], std=[57.375, 57.375, 57.375], to_bgr=False)
+
+mc_cfg = dict(
+    server_list_cfg='/mnt/lustre/share/memcached_client/server_list.conf',
+    client_cfg='/mnt/lustre/share/memcached_client/client.conf',
+    sys_path='/mnt/lustre/share/pymc/py3')
+
 train_pipeline = [
     dict(type='SampleFrames', clip_len=8, frame_interval=32, num_clips=1),
-    dict(type='RawFrameDecode'),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
     dict(type='RandomRescale', scale_range=(256, 320)),
     dict(type='RandomCrop', size=224),
     dict(type='Flip', flip_ratio=0.5),
@@ -46,18 +54,18 @@ val_pipeline = [
         frame_interval=32,
         num_clips=1,
         test_mode=True),
-    dict(type='RawFrameDecode'),
-    dict(type='RandomRescale', scale_range=(256, 320)),
-    dict(type='RandomCrop', size=224),
-    dict(type='Flip', flip_ratio=0.5),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
+    dict(type='Resize', scale=(-1, 256)),
+    dict(type='CenterCrop', crop_size=224),
+    dict(type='Flip', flip_ratio=0),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='FormatShape', input_format='NCTHW'),
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['imgs', 'label'])
 ]
 data = dict(
-    videos_per_gpu=1,
-    workers_per_gpu=1,
+    videos_per_gpu=16,
+    workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         ann_file=ann_file_train,
@@ -75,7 +83,7 @@ evaluation = dict(
 
 # optimizer
 optimizer = dict(
-    type='SGD', lr=0.005, momentum=0.9,
+    type='SGD', lr=0.08, momentum=0.9,
     weight_decay=1e-4)  # this lr is used for 8 gpus
 optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
 # learning policy

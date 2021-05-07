@@ -69,7 +69,7 @@ class TimeSformer(nn.Module):
                  drop_rate=0.,
                  transformer_layers=None,
                  attention_type='divided_space_time',
-                 norm_cfg=dict(type='LN'),
+                 norm_cfg=dict(type='LN', eps=1e-6),
                  **kwargs):
         super().__init__(**kwargs)
         assert attention_type in self.supported_attention_type, (
@@ -103,33 +103,33 @@ class TimeSformer(nn.Module):
                                 dict(
                                     type='DividedTemporalAttentionWithNorm',
                                     embed_dims=embed_dims,
-                                    num_heads=8,
+                                    num_heads=12,
                                     num_frames=num_frames,
                                     attn_drop=0.,
                                     dropout_layer=dict(
                                         type='DropPath', drop_prob=0.1),
-                                    norm_cfg=dict(type='LN')),
+                                    norm_cfg=dict(type='LN', eps=1e-6)),
                                 dict(
                                     type='DividedSpatialAttentionWithNorm',
                                     embed_dims=embed_dims,
-                                    num_heads=8,
+                                    num_heads=12,
                                     num_frames=num_frames,
                                     attn_drop=0.,
                                     dropout_layer=dict(
                                         type='DropPath', drop_prob=0.1),
-                                    norm_cfg=dict(type='LN'))
+                                    norm_cfg=dict(type='LN', eps=1e-6))
                             ],
                             ffn_cfgs=dict(
+                                type='FFNWithNorm',
                                 embed_dims=embed_dims,
                                 feedforward_channels=3072,
                                 num_fcs=2,
                                 ffn_drop=0.,
                                 act_cfg=dict(type='GELU'),
                                 dropout_layer=dict(
-                                    type='DropPath', drop_prob=0.1)),
-                            operation_order=('self_attn', 'self_attn', 'norm',
-                                             'ffn'),
-                            norm_cfg=dict(type='LN')),
+                                    type='DropPath', drop_prob=0.1),
+                                norm_cfg=dict(type='LN', eps=1e-6)),
+                            operation_order=('self_attn', 'self_attn', 'ffn')),
                         num_layers=12))
             else:
                 transformer_layers = ConfigDict(
@@ -141,7 +141,7 @@ class TimeSformer(nn.Module):
                                 dict(
                                     type='MultiheadAttention',
                                     embed_dims=embed_dims,
-                                    num_heads=8,
+                                    num_heads=12,
                                     dropout_layer=dict(
                                         type='DropPath', drop_prob=0.1))
                             ],
@@ -150,12 +150,12 @@ class TimeSformer(nn.Module):
                                 feedforward_channels=3072,
                                 num_fcs=2,
                                 ffn_drop=0.,
-                                act_cfg=dict(type='GELU', inplace=True),
+                                act_cfg=dict(type='GELU'),
                                 dropout_layer=dict(
                                     type='DropPath', drop_prob=0.1)),
                             operation_order=('norm', 'self_attn', 'norm',
                                              'ffn'),
-                            norm_cfg=dict(type='LN')),
+                            norm_cfg=dict(type='LN', eps=1e-6)),
                         num_layers=12))
 
         self.transformer_layers = build_transformer_layer_sequence(
@@ -183,11 +183,11 @@ class TimeSformer(nn.Module):
         # Time Embedding
         if self.attention_type != 'space_only':
             # x [batch_size, num_patches * num_frames + 1, embed_dims]
+            cls_tokens = x[:B, 0, :].unsqueeze(1)
             x = rearrange(x[:, 1:, :], '(b t) p m -> (b p) t m', b=B)
             x = x + self.time_embed
             x = self.drop_after_time(x)
             x = rearrange(x, '(b p) t m -> b (p t) m', b=B)
-            cls_tokens = self.cls_token.expand(B, -1, -1)
             x = torch.cat((cls_tokens, x), dim=1)
 
         x = self.transformer_layers(x, None, None)
