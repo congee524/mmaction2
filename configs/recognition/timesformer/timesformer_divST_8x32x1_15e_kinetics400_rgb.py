@@ -63,9 +63,27 @@ val_pipeline = [
     dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['imgs', 'label'])
 ]
+test_pipeline = [
+    dict(
+        type='SampleFrames',
+        clip_len=8,
+        frame_interval=32,
+        num_clips=1,
+        test_mode=True),
+    dict(type='RawFrameDecode', io_backend='memcached', **mc_cfg),
+    dict(type='Resize', scale=(-1, 256)),
+    dict(type='ThreeCrop', crop_size=224),
+    dict(type='Flip', flip_ratio=0),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='FormatShape', input_format='NCTHW'),
+    dict(type='Collect', keys=['imgs', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['imgs', 'label'])
+]
 data = dict(
     videos_per_gpu=16,
     workers_per_gpu=4,
+    val_dataloader=dict(videos_per_gpu=30),
+    test_dataloader=dict(videos_per_gpu=10),
     train=dict(
         type=dataset_type,
         ann_file=ann_file_train,
@@ -75,8 +93,12 @@ data = dict(
         type=dataset_type,
         ann_file=ann_file_val,
         data_prefix=data_root_val,
-        pipeline=val_pipeline))
-data['test'] = data['val']
+        pipeline=val_pipeline),
+    test=dict(
+        type=dataset_type,
+        ann_file=ann_file_test,
+        data_prefix=data_root_val,
+        pipeline=test_pipeline))
 
 evaluation = dict(
     interval=1, metrics=['top_k_accuracy', 'mean_class_accuracy'])

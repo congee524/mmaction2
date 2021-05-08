@@ -122,7 +122,7 @@ class DividedSpatialAttentionWithNorm(BaseModule):
 @FEEDFORWARD_NETWORK.register_module()
 class FFNWithNorm(FFN):
 
-    def __init__(self, norm_cfg=dict(type='LN'), *args, **kwargs):
+    def __init__(self, *args, norm_cfg=dict(type='LN'), **kwargs):
         super().__init__(*args, **kwargs)
         self.norm = build_norm_layer(norm_cfg, self.embed_dims)[1]
 
