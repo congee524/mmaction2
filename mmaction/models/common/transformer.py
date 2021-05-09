@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from einops import rearrange
-from mmcv.cnn import build_norm_layer
+from mmcv.cnn import build_norm_layer, constant_init
 from mmcv.cnn.bricks.registry import ATTENTION, FEEDFORWARD_NETWORK
 from mmcv.cnn.bricks.transformer import FFN, build_dropout
 from mmcv.runner.base_module import BaseModule
@@ -30,8 +30,10 @@ class DividedTemporalAttentionWithNorm(BaseModule):
         self.norm = build_norm_layer(norm_cfg, self.embed_dims)[1]
         self.temporal_fc = nn.Linear(self.embed_dims, self.embed_dims)
 
-        nn.init.constant_(self.temporal_fc.weight, 0)
-        nn.init.constant_(self.temporal_fc.bias, 0)
+        self.init_weights()
+
+    def init_weights(self):
+        constant_init(self.temporal_fc, val=0, bias=0)
 
     def forward(self, query, key=None, value=None, residual=None, **kwargs):
         assert residual is None, (

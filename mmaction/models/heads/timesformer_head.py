@@ -15,7 +15,7 @@ class TimeSformerHead(BaseHead):
                  num_classes,
                  in_channels,
                  loss_cls=dict(type='CrossEntropyLoss'),
-                 init_std=0.01,
+                 init_std=0.02,
                  **kwargs):
         super().__init__(num_classes, in_channels, loss_cls, **kwargs)
         self.init_std = init_std

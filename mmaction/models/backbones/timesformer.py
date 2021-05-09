@@ -2,11 +2,14 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from mmcv import ConfigDict
-from mmcv.cnn import build_conv_layer, build_norm_layer
+from mmcv.cnn import (build_conv_layer, build_norm_layer, kaiming_init,
+                      normal_init)
 from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
+from mmcv.runner import _load_checkpoint, load_state_dict
 from torch.nn.modules.utils import _pair
 
-from mmaction.utils import trunc_normal_
+from ...utils import get_root_logger
+# from mmaction.utils import trunc_normal_
 from ..registry import BACKBONES
 
 
@@ -47,6 +50,12 @@ class PatchEmbed(nn.Module):
             kernel_size=patch_size,
             stride=patch_size)
 
+        self.init_weights()
+
+    def init_weights(self):
+        # Lecun norm from ClassyVision
+        kaiming_init(self.projection, mode='fan_in', nonlinearity='linear')
+
     def forward(self, x):
         x = rearrange(x, 'b c t h w -> (b t) c h w')
         x = self.projection(x).flatten(2).transpose(1, 2)
@@ -74,6 +83,7 @@ class TimeSformer(nn.Module):
         super().__init__(**kwargs)
         assert attention_type in self.supported_attention_type, (
             f'Unsupported Attention Type {self.attention_type}!')
+        self.pretrained = pretrained
         self.embed_dims = embed_dims
         self.attention_type = attention_type
         self.patch_embed = PatchEmbed(
@@ -163,11 +173,37 @@ class TimeSformer(nn.Module):
 
         self.norm = build_norm_layer(norm_cfg, embed_dims)[1]
 
-        trunc_normal_(self.pos_embed, std=.02)
-        trunc_normal_(self.cls_token, std=.02)
+    def init_weights(self, pretrained=None):
+        nn.init.normal_(self.pos_embed, std=.02)
+        if self.attention_type == 'divided_space_time':
+            normal_init(
+                self.transformer_layers[0].attentions[0].temporal_fc, std=.02)
 
-    def init_weights(self):
-        pass
+        if pretrained:
+            self.pretrained = pretrained
+        if isinstance(self.pretrained, str):
+            logger = get_root_logger()
+            logger.info(f'load model from: {self.pretrained}')
+
+            state_dict = _load_checkpoint(self.pretrained, map_location='cpu')
+            if 'state_dict' in state_dict:
+                state_dict = state_dict['state_dict']
+
+            if self.attention_type == 'divided_space_time':
+                # vit has no temporal attention, temporal_fc and time_embed
+                #   which were constructed in divided_space_time timesformer.
+                # for time_embed and temporal_fc, keep them as default initial
+                #   state;
+                # for temporal attention, use the same parameters of its
+                #   following spatial attention.
+                old_state_dict_keys = state_dict.keys()
+                for old_key in old_state_dict_keys:
+                    if 'attentions.1' in old_key:
+                        new_key = old_key.replace('attentions.1',
+                                                  'attentions.0')
+                        state_dict[new_key] = state_dict[old_key].clone()
+
+            load_state_dict(self, state_dict, strict=False, logger=logger)
 
     def forward(self, x):
         # x [batch_size * num_frames, num_patches, embed_dims]
