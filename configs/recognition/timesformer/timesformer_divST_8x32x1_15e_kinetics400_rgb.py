@@ -5,6 +5,7 @@ model = dict(
     type='Recognizer3D',
     backbone=dict(
         type='TimeSformer',
+        pretrained='work_dirs/vit_imagenet.pth',
         num_frames=8,
         img_size=224,
         patch_size=16,

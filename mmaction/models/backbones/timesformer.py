@@ -177,7 +177,8 @@ class TimeSformer(nn.Module):
         nn.init.normal_(self.pos_embed, std=.02)
         if self.attention_type == 'divided_space_time':
             normal_init(
-                self.transformer_layers[0].attentions[0].temporal_fc, std=.02)
+                self.transformer_layers.layers[0].attentions[0].temporal_fc,
+                std=.02)
 
         if pretrained:
             self.pretrained = pretrained
@@ -196,7 +197,7 @@ class TimeSformer(nn.Module):
                 #   state;
                 # for temporal attention, use the same parameters of its
                 #   following spatial attention.
-                old_state_dict_keys = state_dict.keys()
+                old_state_dict_keys = list(state_dict.keys())
                 for old_key in old_state_dict_keys:
                     if 'attentions.1' in old_key:
                         new_key = old_key.replace('attentions.1',
