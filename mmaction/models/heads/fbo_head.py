@@ -373,7 +373,8 @@ class FBOHead(nn.Module):
         inds = rois[:, 0].type(torch.int64)
         lt_feat_list = []
         for ind in inds:
-            lt_feat_list.append(self.lfb[img_metas[ind]['img_key']].to())
+            lt_feat = self.lfb[img_metas[ind]['img_key']]
+            lt_feat_list.append(lt_feat.view(-1, *lt_feat.size()[2:]))
         lt_feat = torch.stack(lt_feat_list, dim=0)
         # [N, lfb_channels, window_size * max_num_feat_per_step]
         lt_feat = lt_feat.permute(0, 2, 1).contiguous()

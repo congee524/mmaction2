@@ -160,7 +160,7 @@ class LFB(object):
         # Sample long term features.
         window_size, K = self.window_size, self.max_num_sampled_feat
         start = timestamp - (window_size // 2)
-        lt_feats = torch.zeros(window_size * K, self.lfb_channels)
+        lt_feats = torch.zeros(window_size, K, self.lfb_channels)
 
         for idx, sec in enumerate(range(start, start + window_size)):
             if sec in video_features:
@@ -172,7 +172,7 @@ class LFB(object):
                     range(num_feat), num_feat_sampled, replace=False)
 
                 for k, rand_idx in enumerate(random_lfb_indices):
-                    lt_feats[idx * K + k] = video_features[sec][rand_idx]
+                    lt_feats[idx][k] = video_features[sec][rand_idx].clone()
 
         # [window_size * max_num_sampled_feat, lfb_channels]
         return lt_feats
