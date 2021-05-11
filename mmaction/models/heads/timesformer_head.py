@@ -1,6 +1,7 @@
 import torch.nn as nn
-from mmcv.cnn import normal_init
 
+# from mmcv.cnn import normal_init
+from mmaction.utils import trunc_normal_
 from ..registry import HEADS
 from .base import BaseHead
 
@@ -23,7 +24,7 @@ class TimeSformerHead(BaseHead):
 
     def init_weights(self):
         """Initiate the parameters from scratch."""
-        normal_init(self.fc_cls, std=self.init_std)
+        trunc_normal_(self.fc_cls, std=self.init_std)
 
     def forward(self, x):
         # [N, in_channels]

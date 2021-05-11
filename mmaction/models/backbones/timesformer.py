@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from mmcv import ConfigDict
-from mmcv.cnn import (build_conv_layer, build_norm_layer, kaiming_init,
-                      normal_init)
+from mmcv.cnn import build_conv_layer, build_norm_layer, kaiming_init
+# from mmcv.cnn import normal_init
 from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
 from mmcv.runner import _load_checkpoint, load_state_dict
 from torch.nn.modules.utils import _pair
 
+from mmaction.utils import trunc_normal_
 from ...utils import get_root_logger
-# from mmaction.utils import trunc_normal_
 from ..registry import BACKBONES
 
 
@@ -176,9 +176,13 @@ class TimeSformer(nn.Module):
     def init_weights(self, pretrained=None):
         nn.init.normal_(self.pos_embed, std=.02)
         if self.attention_type == 'divided_space_time':
-            normal_init(
-                self.transformer_layers.layers[0].attentions[0].temporal_fc,
-                std=.02)
+            # normal_init(
+            #     self.transformer_layers.layers[0].attentions[0].temporal_fc,
+            #     std=.02)
+            temporal_fc = self.transformer_layers.layers[0].attentions[
+                0].temporal_fc
+            trunc_normal_(temporal_fc.weight, std=.02)
+            nn.init.constant_(temporal_fc.bias, 0)
 
         if pretrained:
             self.pretrained = pretrained
