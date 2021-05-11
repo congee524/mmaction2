@@ -162,6 +162,7 @@ class ThesisHead(nn.Module):
     def __init__(self,
                  lfb_cfg,
                  fbo_cfg,
+                 pretrained=None,
                  temporal_pool_type='avg',
                  spatial_pool_type='max'):
         super().__init__()
