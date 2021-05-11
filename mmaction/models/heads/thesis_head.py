@@ -89,6 +89,7 @@ class FBOThesis(nn.Module):
         self.lt_feat_norm = nn.LayerNorm(latent_channels)
         self.spatial_attn = nn.MultiheadAttention(latent_channels, num_heads=8)
 
+    def init_weights(self, pretrained=None):
         # zero init temporal_fc
         constant_init(self.temporal_fc, val=0, bias=0)
 
@@ -230,7 +231,7 @@ class ThesisHead(nn.Module):
 
         # [N, C + 512]
         out = torch.cat([identity, fbo_feat], dim=1)
-        return out
+        return out.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
 
 if mmdet_imported:
