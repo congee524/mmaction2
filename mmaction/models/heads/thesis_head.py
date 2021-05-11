@@ -216,7 +216,8 @@ class ThesisHead(nn.Module):
 
     def forward(self, x, rois, img_metas):
         # [N, C]
-        identity = st_feat = self.spatial_pool(self.temporal_pool(x)).squeeze()
+        st_feat = self.spatial_pool(self.temporal_pool(x))
+        identity = st_feat = st_feat.reshape(st_feat.size()[:2])
 
         # [B, window_size * max_num_feat_per_step, lfb_channels]
         lt_feat = self.sample_lfb(img_metas).to(st_feat.device)
