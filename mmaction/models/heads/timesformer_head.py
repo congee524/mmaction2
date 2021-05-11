@@ -24,7 +24,8 @@ class TimeSformerHead(BaseHead):
 
     def init_weights(self):
         """Initiate the parameters from scratch."""
-        trunc_normal_(self.fc_cls, std=self.init_std)
+        trunc_normal_(self.fc_cls.weight, std=self.init_std)
+        nn.init.constant_(self.fc_cls.bias, 0)
 
     def forward(self, x):
         # [N, in_channels]
