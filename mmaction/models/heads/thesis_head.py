@@ -76,9 +76,6 @@ class FBOThesis(nn.Module):
         if self.lt_feat_dropout_ratio > 0:
             self.lt_feat_dropout = nn.Dropout(self.lt_feat_dropout_ratio)
 
-        if not self.pre_activate:
-            self.relu = nn.ReLU()
-
         self.time_embed = nn.Parameter(
             torch.zeros(1, window_size, latent_channels))
 
@@ -125,7 +122,7 @@ class FBOThesis(nn.Module):
         # TODO: add spatial position embedding
 
         # spatial attention
-        def spatial_attention(self, _st_feat, _lt_feat):
+        def spatial_attention(_st_feat, _lt_feat):
             # [num_rois, 1, 512] [window_size * num_rois, 1, 512]
             identity = _st_feat
             _st_feat = self.st_feat_norm(_st_feat).unsqueeze(1)

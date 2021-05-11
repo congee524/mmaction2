@@ -19,10 +19,11 @@ model = dict(
                 dataset_modes=dataset_modes,
                 device='gpu'),
             fbo_cfg=dict(
-                type='non_local',
+                type='thesis',
                 st_feat_channels=2048,
                 lt_feat_channels=lfb_channels,
                 latent_channels=512,
+                window_size=60,
                 st_feat_dropout_ratio=0.2,
                 lt_feat_dropout_ratio=0.2)),
         bbox_head=dict(in_channels=2560)))
@@ -86,7 +87,7 @@ val_pipeline = [
 ]
 
 data = dict(
-    videos_per_gpu=12,
+    videos_per_gpu=8,
     workers_per_gpu=4,
     val_dataloader=dict(videos_per_gpu=1),
     test_dataloader=dict(videos_per_gpu=1),
@@ -111,7 +112,7 @@ data = dict(
 data['test'] = data['val']
 evaluation = dict(interval=1, save_best='mAP@0.5IOU')
 
-optimizer = dict(type='SGD', lr=0.15, momentum=0.9, weight_decay=1e-05)
+optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=1e-05)
 # this lr is used for 8 gpus
 
 optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
