@@ -7,8 +7,6 @@ from .lfb_infer_head import LFBInferHead
 from .roi_head import AVARoIHead
 from .slowfast_head import SlowFastHead
 from .ssn_head import SSNHead
-from .thesis_head import ThesisHead
-from .timesformer_head import TimeSformerHead
 from .tpn_head import TPNHead
 from .trn_head import TRNHead
 from .tsm_head import TSMHead
@@ -18,5 +16,5 @@ from .x3d_head import X3DHead
 __all__ = [
     'TSNHead', 'I3DHead', 'BaseHead', 'TSMHead', 'SlowFastHead', 'SSNHead',
     'TPNHead', 'AudioTSNHead', 'X3DHead', 'BBoxHeadAVA', 'AVARoIHead',
-    'FBOHead', 'LFBInferHead', 'TRNHead', 'TimeSformerHead', 'ThesisHead'
+    'FBOHead', 'LFBInferHead', 'TRNHead'
 ]
