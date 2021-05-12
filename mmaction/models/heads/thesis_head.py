@@ -84,8 +84,8 @@ class FBOThesis(nn.Module):
             self.time_embed = nn.Parameter(
                 torch.zeros(1, window_size, latent_channels))
         else:
-            self.time_embed = torch.zeros(window_size, latent_channels)
-            device = self.time_embed.device
+            self.time_embed = nn.Parameter(
+                torch.zeros(window_size, latent_channels), requires_grad=False)
             # following attention is all your need
             for pos in range(window_size):
                 for i in range(0, latent_channels, 2):
@@ -93,7 +93,7 @@ class FBOThesis(nn.Module):
                         pos / (10000**((2 * i) / latent_channels)))
                     self.time_embed[pos, i + 1] = math.cos(
                         pos / (10000**((2 * i + 2) / latent_channels)))
-            self.time_embed = self.time_embed.to(device).unsqueeze(0)
+            self.time_embed = self.time_embed.unsqueeze(0)
 
         self.temporal_norm = nn.LayerNorm(latent_channels)
         self.temporal_attn = nn.MultiheadAttention(
@@ -243,7 +243,7 @@ class ThesisHead(nn.Module):
         identity = st_feat = st_feat.reshape(N, C)
 
         # [B, window_size * max_num_feat_per_step, lfb_channels]
-        lt_feat = self.sample_lfb(img_metas).to(st_feat.device)
+        lt_feat = self.sample_lfb(img_metas).to(x.device)
 
         # list of each video's roi_featurs
         st_feat = self.get_st_feat_by_epoch(st_feat, rois, img_metas)
