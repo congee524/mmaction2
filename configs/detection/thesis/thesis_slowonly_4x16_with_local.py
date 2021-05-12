@@ -26,8 +26,8 @@ model = dict(
                 window_size=60,
                 st_feat_dropout_ratio=0.2,
                 lt_feat_dropout_ratio=0.2),
-            with_local=False),
-        bbox_head=dict(in_channels=2560)))
+            with_local=True),
+        bbox_head=dict(in_channels=3072)))
 
 dataset_type = 'AVADataset'
 data_root = 'data/ava/rawframes'

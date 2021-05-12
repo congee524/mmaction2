@@ -1,5 +1,7 @@
 import copy
+import math
 
+import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -52,18 +54,21 @@ class DropPath(nn.Module):
 class FBOThesis(nn.Module):
     """FBO Thesis."""
 
-    def __init__(self,
-                 st_feat_channels,
-                 lt_feat_channels,
-                 latent_channels,
-                 window_size=60,
-                 st_feat_dropout_ratio=0.2,
-                 lt_feat_dropout_ratio=0.2):
+    def __init__(
+            self,
+            st_feat_channels,
+            lt_feat_channels,
+            latent_channels,
+            window_size=60,
+            time_embedding_style='fixed',  # 'learnable'
+            st_feat_dropout_ratio=0.2,
+            lt_feat_dropout_ratio=0.2):
         super().__init__()
         self.st_feat_channels = st_feat_channels
         self.lt_feat_channels = lt_feat_channels
         self.latent_channels = latent_channels
         self.window_size = window_size
+        self.time_embedding_style = time_embedding_style
         self.st_feat_dropout_ratio = st_feat_dropout_ratio
         self.lt_feat_dropout_ratio = lt_feat_dropout_ratio
 
@@ -76,8 +81,18 @@ class FBOThesis(nn.Module):
         if self.lt_feat_dropout_ratio > 0:
             self.lt_feat_dropout = nn.Dropout(self.lt_feat_dropout_ratio)
 
-        self.time_embed = nn.Parameter(
-            torch.zeros(1, window_size, latent_channels))
+        if self.time_embedding_style == 'learnable':
+            self.time_embed = nn.Parameter(
+                torch.zeros(1, window_size, latent_channels))
+        else:
+            self.time_embed = torch.zeros(window_size, latent_channels)
+            # following attention is all your need
+            for pos in range(window_size):
+                for i in range(0, latent_channels, 2):
+                    self.time_embed[pos, i] = math.sin(
+                        pos / (10000**((2 * i) / latent_channels)))
+                    self.time_embed[pos, i + 1] = math.cos(
+                        pos / (10000**((2 * i + 2) / latent_channels)))
 
         self.temporal_norm = nn.LayerNorm(latent_channels)
         self.temporal_attn = nn.MultiheadAttention(
@@ -131,10 +146,9 @@ class FBOThesis(nn.Module):
             _fbo_feat = self.spatial_attn(_st_feat, _lt_feat, _lt_feat)[0]
             _fbo_feat = self.drop_path(_fbo_feat.squeeze(1))
             _fbo_feat += identity
-            return torch.mean(_fbo_feat, 0)
+            return _fbo_feat
 
-        fbo_feat = torch.stack(
-            list(map(spatial_attention, st_feat, lt_feat)), dim=0)
+        fbo_feat = list(map(spatial_attention, st_feat, lt_feat))
 
         return fbo_feat
 
@@ -163,6 +177,7 @@ class ThesisHead(nn.Module):
                  lfb_cfg,
                  fbo_cfg,
                  pretrained=None,
+                 with_local=True,
                  temporal_pool_type='avg',
                  spatial_pool_type='max'):
         super().__init__()
@@ -176,6 +191,8 @@ class ThesisHead(nn.Module):
 
         self.lfb = LFB(**self.lfb_cfg)
         self.fbo = self.fbo_dict[fbo_type](**self.fbo_cfg)
+
+        self.with_local = with_local
 
         # Pool by default
         if temporal_pool_type == 'avg':
@@ -216,8 +233,9 @@ class ThesisHead(nn.Module):
 
     def forward(self, x, rois, img_metas):
         # [N, C]
+        N, C, _, _, _ = x.shape
         st_feat = self.spatial_pool(self.temporal_pool(x))
-        identity = st_feat = st_feat.reshape(st_feat.size()[:2])
+        identity = st_feat = st_feat.reshape(N, C)
 
         # [B, window_size * max_num_feat_per_step, lfb_channels]
         lt_feat = self.sample_lfb(img_metas).to(st_feat.device)
@@ -229,10 +247,22 @@ class ThesisHead(nn.Module):
         fbo_feat = self.fbo(st_feat, lt_feat)
 
         # organize fbo_feat
-        fbo_feat = fbo_feat[rois[:, 0].type(torch.int64)]
-
+        inds = np.array(rois[:, 0].type(torch.int64))
+        global_fbo_feats = torch.stack(
+            list(map(lambda x: torch.mean(x, dim=0), fbo_feat)), dim=0)
+        global_fbo_feat = global_fbo_feats[inds]
         # [N, C + 512]
-        out = torch.cat([identity, fbo_feat], dim=1)
+        out = torch.cat([identity, global_fbo_feat], dim=1)
+
+        if self.with_local:
+            local_fbo_feat = torch.zeros(N, global_fbo_feat.size(-1))
+            for idx in range(N):
+                batch_id = inds[idx]
+                local_fbo_feat[idx] = fbo_feat[batch_id][np.sum(
+                    inds[:idx] == batch_id)]
+            # [N, C + 512 + 512]
+            out = torch.cat([identity, local_fbo_feat], dim=1)
+
         return out.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
 
