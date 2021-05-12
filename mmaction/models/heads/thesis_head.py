@@ -93,6 +93,7 @@ class FBOThesis(nn.Module):
                         pos / (10000**((2 * i) / latent_channels)))
                     self.time_embed[pos, i + 1] = math.cos(
                         pos / (10000**((2 * i + 2) / latent_channels)))
+            self.time_embed = self.time_embed.unsqueeze(0)
 
         self.temporal_norm = nn.LayerNorm(latent_channels)
         self.temporal_attn = nn.MultiheadAttention(
@@ -123,7 +124,7 @@ class FBOThesis(nn.Module):
 
         # temporal attention
         res_lt_feat = rearrange(lt_feat, 'b (t k) c -> (b k) t c', t=T)
-        res_lt_feat = res_lt_feat + self.time_embed
+        res_lt_feat = res_lt_feat + self.time_embed.to(res_lt_feat.device)
 
         res_lt_feat = self.temporal_norm(res_lt_feat).permute(1, 0, 2)
         res_lt_feat = self.temporal_attn(res_lt_feat, res_lt_feat,
