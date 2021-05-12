@@ -1,7 +1,6 @@
 import copy
 import math
 
-import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -124,7 +123,11 @@ class FBOThesis(nn.Module):
 
         # temporal attention
         res_lt_feat = rearrange(lt_feat, 'b (t k) c -> (b k) t c', t=T)
-        res_lt_feat = res_lt_feat + self.time_embed.to(res_lt_feat.device)
+        if self.time_embedding_style == 'fixed':
+            with torch.no_grad():
+                res_lt_feat = res_lt_feat + self.time_embed
+        else:
+            res_lt_feat = res_lt_feat + self.time_embed
 
         res_lt_feat = self.temporal_norm(res_lt_feat).permute(1, 0, 2)
         res_lt_feat = self.temporal_attn(res_lt_feat, res_lt_feat,
@@ -248,7 +251,7 @@ class ThesisHead(nn.Module):
         fbo_feat = self.fbo(st_feat, lt_feat)
 
         # organize fbo_feat
-        inds = np.array(rois[:, 0].type(torch.int64))
+        inds = rois[:, 0].type(torch.int64)
         global_fbo_feats = torch.stack(
             list(map(lambda x: torch.mean(x, dim=0), fbo_feat)), dim=0)
         global_fbo_feat = global_fbo_feats[inds]
@@ -259,7 +262,7 @@ class ThesisHead(nn.Module):
             local_fbo_feat = torch.zeros(N, global_fbo_feat.size(-1))
             for idx in range(N):
                 batch_id = inds[idx]
-                local_fbo_feat[idx] = fbo_feat[batch_id][np.sum(
+                local_fbo_feat[idx] = fbo_feat[batch_id][torch.sum(
                     inds[:idx] == batch_id)]
             # [N, C + 512 + 512]
             out = torch.cat([identity, local_fbo_feat], dim=1)
