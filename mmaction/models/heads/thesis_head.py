@@ -85,6 +85,7 @@ class FBOThesis(nn.Module):
                 torch.zeros(1, window_size, latent_channels))
         else:
             self.time_embed = torch.zeros(window_size, latent_channels)
+            device = self.time_embed.device
             # following attention is all your need
             for pos in range(window_size):
                 for i in range(0, latent_channels, 2):
@@ -92,7 +93,7 @@ class FBOThesis(nn.Module):
                         pos / (10000**((2 * i) / latent_channels)))
                     self.time_embed[pos, i + 1] = math.cos(
                         pos / (10000**((2 * i + 2) / latent_channels)))
-            self.time_embed = self.time_embed.unsqueeze(0)
+            self.time_embed = self.time_embed.to(device).unsqueeze(0)
 
         self.temporal_norm = nn.LayerNorm(latent_channels)
         self.temporal_attn = nn.MultiheadAttention(
