@@ -256,14 +256,13 @@ class ThesisHead(nn.Module):
         out = torch.cat([identity, global_fbo_feat], dim=1)
 
         if self.with_local:
-            local_fbo_feat = torch.zeros(N,
-                                         global_fbo_feat.size(-1)).to(x.device)
+            local_fbo_feat = torch.empty(N, global_fbo_feat.size(-1))
             for idx in range(N):
                 batch_id = inds[idx]
                 local_fbo_feat[idx] = fbo_feat[batch_id][torch.sum(
                     inds[:idx] == batch_id)]
             # [N, C + 512 + 512]
-            out = torch.cat([identity, local_fbo_feat], dim=1)
+            out = torch.cat([identity, local_fbo_feat.to(x.device)], dim=1)
 
         return out.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
