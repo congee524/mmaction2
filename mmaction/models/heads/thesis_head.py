@@ -104,6 +104,8 @@ class FBOThesis(nn.Module):
         self.st_feat_norm = nn.LayerNorm(latent_channels)
         self.lt_feat_norm = nn.LayerNorm(latent_channels)
         self.spatial_attn = nn.MultiheadAttention(latent_channels, num_heads=8)
+        self.ffn_norm = nn.LayerNorm(latent_channels)
+        self.ffn_fc = nn.Linear(512, 512)
 
     def init_weights(self, pretrained=None):
         # zero init temporal_fc
@@ -147,6 +149,8 @@ class FBOThesis(nn.Module):
             _fbo_feat = self.spatial_attn(_st_feat, _lt_feat, _lt_feat)[0]
             _fbo_feat = self.drop_path(_fbo_feat.squeeze(1))
             _fbo_feat += identity
+            _fbo_feat = _fbo_feat + self.drop_path(
+                self.ffn_fc(self.ffn_norm(_fbo_feat)))
             return _fbo_feat
 
         fbo_feat = list(map(spatial_attention, st_feat, lt_feat))
