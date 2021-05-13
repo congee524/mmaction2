@@ -262,7 +262,7 @@ class ThesisHead(nn.Module):
                 local_fbo_feat[idx] = fbo_feat[batch_id][torch.sum(
                     inds[:idx] == batch_id)]
             # [N, C + 512 + 512]
-            out = torch.cat([identity, local_fbo_feat.to(x.device)], dim=1)
+            out = torch.cat([out, local_fbo_feat.to(x.device)], dim=1)
 
         return out.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
