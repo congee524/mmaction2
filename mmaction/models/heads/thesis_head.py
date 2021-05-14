@@ -257,7 +257,7 @@ class ThesisHead(nn.Module):
 
         # [N, window_size * max_num_feat_per_step, lfb_channels]
         inds = rois[:, 0].type(torch.int64)
-        lt_feat = self.sample_lfb(img_metas)[inds].to(x.device)
+        lt_feat = self.sample_lfb(img_metas)[inds].clone().to(x.device)
 
         # list of each video's roi_featurs
         # st_feat = self.get_st_feat_by_epoch(st_feat, rois, img_metas)
