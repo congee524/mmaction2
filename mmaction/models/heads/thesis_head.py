@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from mmcv.cnn import constant_init
-from mmcv.runner.base_module import Sequential
 
 from mmaction.models.common import LFB
 
@@ -106,12 +105,9 @@ class FBOThesis(nn.Module):
         self.lt_feat_norm = nn.LayerNorm(latent_channels)
         self.spatial_attn = nn.MultiheadAttention(latent_channels, num_heads=8)
         self.ffn_norm = nn.LayerNorm(latent_channels)
-        layers = []
-        layers.append(
-            Sequential(
-                nn.Linear(512, 512), nn.ReLU(inplace=True), nn.Dropout(p=0.1)))
-        layers.append(nn.Linear(512, 512))
-        self.ffn_layers = Sequential(*layers)
+        self.ffn_layers = nn.Sequential(
+            nn.Linear(512, 512), nn.ReLU(inplace=True), nn.Dropout(p=0.1),
+            nn.Linear(512, 512))
 
     def init_weights(self, pretrained=None):
         # zero init temporal_fc
