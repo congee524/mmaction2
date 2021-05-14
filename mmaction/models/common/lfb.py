@@ -174,7 +174,7 @@ class LFB(object):
                 for k, rand_idx in enumerate(random_lfb_indices):
                     lt_feats[idx][k] = video_features[sec][rand_idx].clone()
 
-        # [window_size * max_num_sampled_feat, lfb_channels]
+        # [window_size, max_num_sampled_feat, lfb_channels]
         return lt_feats
 
     def __getitem__(self, img_key):

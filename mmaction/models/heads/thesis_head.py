@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from mmcv.cnn import constant_init
+from mmcv.runner.base_module import Sequential
 
 from mmaction.models.common import LFB
 
@@ -60,8 +61,8 @@ class FBOThesis(nn.Module):
             latent_channels,
             window_size=60,
             time_embedding_style='fixed',  # 'learnable'
-            st_feat_dropout_ratio=0.2,
-            lt_feat_dropout_ratio=0.2):
+            st_feat_dropout_ratio=0,
+            lt_feat_dropout_ratio=0):
         super().__init__()
         self.st_feat_channels = st_feat_channels
         self.lt_feat_channels = lt_feat_channels
@@ -105,7 +106,12 @@ class FBOThesis(nn.Module):
         self.lt_feat_norm = nn.LayerNorm(latent_channels)
         self.spatial_attn = nn.MultiheadAttention(latent_channels, num_heads=8)
         self.ffn_norm = nn.LayerNorm(latent_channels)
-        self.ffn_fc = nn.Linear(512, 512)
+        layers = []
+        layers.append(
+            Sequential(
+                nn.Linear(512, 512), nn.ReLU(inplace=True), nn.Dropout(p=0.1)))
+        layers.append(nn.Linear(512, 512))
+        self.ffn_layers = Sequential(*layers)
 
     def init_weights(self, pretrained=None):
         # zero init temporal_fc
@@ -114,18 +120,19 @@ class FBOThesis(nn.Module):
     def forward(self, st_feat, lt_feat):
         # st_feat list of each video's roi_featurs
         # lt_feat [B, window_size * max_num_feat_per_step, lfb_channels]
-        st_feat = list(map(self.st_feat_proj, st_feat))
+        # st_feat = list(map(self.st_feat_proj, st_feat))
+        st_feat = self.st_feat_proj(st_feat)
         if self.st_feat_dropout_ratio > 0:
-            st_feat = list(map(self.st_feat_dropout, st_feat))
+            st_feat = self.st_feat_dropout(st_feat)
 
         lt_feat = self.lt_feat_proj(lt_feat)
         if self.lt_feat_dropout_ratio > 0:
             lt_feat = self.lt_feat_dropout(lt_feat)
 
-        B, T = lt_feat.size(0), self.window_size
+        N, T = lt_feat.size(0), self.window_size
 
         # temporal attention
-        res_lt_feat = rearrange(lt_feat, 'b (t k) c -> (b k) t c', t=T)
+        res_lt_feat = rearrange(lt_feat, 'n (t k) c -> (n k) t c', t=T)
         res_lt_feat = res_lt_feat + self.time_embed
 
         res_lt_feat = self.temporal_norm(res_lt_feat).permute(1, 0, 2)
@@ -133,7 +140,7 @@ class FBOThesis(nn.Module):
                                          res_lt_feat)[0].permute(1, 0, 2)
         res_lt_feat = self.drop_path(res_lt_feat)
 
-        res_lt_feat = rearrange(res_lt_feat, '(b k) t c -> b (t k) c', b=B)
+        res_lt_feat = rearrange(res_lt_feat, '(n k) t c -> n (t k) c', n=N)
         res_lt_feat = self.temporal_fc(res_lt_feat)
 
         lt_feat += res_lt_feat
@@ -141,19 +148,29 @@ class FBOThesis(nn.Module):
         # TODO: add spatial position embedding
 
         # spatial attention
-        def spatial_attention(_st_feat, _lt_feat):
-            # [num_rois, 1, 512] [window_size * num_rois, 1, 512]
-            identity = _st_feat
-            _st_feat = self.st_feat_norm(_st_feat).unsqueeze(1)
-            _lt_feat = self.lt_feat_norm(_lt_feat).unsqueeze(1)
-            _fbo_feat = self.spatial_attn(_st_feat, _lt_feat, _lt_feat)[0]
-            _fbo_feat = self.drop_path(_fbo_feat.squeeze(1))
-            _fbo_feat += identity
-            _fbo_feat = _fbo_feat + self.drop_path(
-                self.ffn_fc(self.ffn_norm(_fbo_feat)))
-            return _fbo_feat
+        fbo_feat = st_feat
+        st_feat = self.st_feat_norm(st_feat).unsqueeze(0)
+        lt_feat = self.lt_feat_norm(lt_feat).permute(1, 0, 2)
+        res_fbo_feat = self.spatial_attn(st_feat, lt_feat, lt_feat)[0]
+        res_fbo_feat = self.drop_path(res_fbo_feat.squeeze(0))
+        fbo_feat += res_fbo_feat
 
-        fbo_feat = list(map(spatial_attention, st_feat, lt_feat))
+        fbo_feat = fbo_feat + self.drop_path(
+            self.ffn_layers(self.ffn_norm(fbo_feat)))
+
+        # def spatial_attention(_st_feat, _lt_feat):
+        #     # [num_rois, 1, 512] [window_size * num_rois, 1, 512]
+        #     identity = _st_feat
+        #     _st_feat = self.st_feat_norm(_st_feat).unsqueeze(1)
+        #     _lt_feat = self.lt_feat_norm(_lt_feat).unsqueeze(1)
+        #     _fbo_feat = self.spatial_attn(_st_feat, _lt_feat, _lt_feat)[0]
+        #     _fbo_feat = self.drop_path(_fbo_feat.squeeze(1))
+        #     _fbo_feat += identity
+        #     _fbo_feat = _fbo_feat + self.drop_path(
+        #         self.ffn_layers(self.ffn_norm(_fbo_feat)))
+        #     return _fbo_feat
+
+        # fbo_feat = list(map(spatial_attention, st_feat, lt_feat))
 
         return fbo_feat
 
@@ -224,7 +241,7 @@ class ThesisHead(nn.Module):
         for img_meta in img_metas:
             lt_feat_list.append(self.lfb[img_meta['img_key']])
 
-        # [B, window_size, max_num_feat_per_step, lfb_channels]
+        # [B, window_size * max_num_feat_per_step, lfb_channels]
         lt_feat = torch.stack(lt_feat_list, dim=0)
         return lt_feat.view(lt_feat.size(0), -1, lt_feat.size(-1))
 
@@ -242,31 +259,33 @@ class ThesisHead(nn.Module):
         st_feat = self.spatial_pool(self.temporal_pool(x))
         identity = st_feat = st_feat.reshape(N, C)
 
-        # [B, window_size * max_num_feat_per_step, lfb_channels]
-        lt_feat = self.sample_lfb(img_metas).to(x.device)
+        # [N, window_size * max_num_feat_per_step, lfb_channels]
+        inds = rois[:, 0].type(torch.int64)
+        lt_feat = self.sample_lfb(img_metas)[inds].to(x.device)
 
         # list of each video's roi_featurs
-        st_feat = self.get_st_feat_by_epoch(st_feat, rois, img_metas)
+        # st_feat = self.get_st_feat_by_epoch(st_feat, rois, img_metas)
 
-        # [B, C]
+        # [N, C]
         fbo_feat = self.fbo(st_feat, lt_feat)
+        out = torch.cat([identity, fbo_feat], dim=1)
 
-        # organize fbo_feat
-        inds = rois[:, 0].type(torch.int64)
-        global_fbo_feats = torch.stack(
-            list(map(lambda x: torch.mean(x, dim=0), fbo_feat)), dim=0)
-        global_fbo_feat = global_fbo_feats[inds]
-        # [N, C + 512]
-        out = torch.cat([identity, global_fbo_feat], dim=1)
+        # # organize fbo_feat
+        # inds = rois[:, 0].type(torch.int64)
+        # global_fbo_feats = torch.stack(
+        #     list(map(lambda x: torch.mean(x, dim=0), fbo_feat)), dim=0)
+        # global_fbo_feat = global_fbo_feats[inds]
+        # # [N, C + 512]
+        # out = torch.cat([identity, global_fbo_feat], dim=1)
 
-        if self.with_local:
-            local_fbo_feat = torch.empty(N, global_fbo_feat.size(-1))
-            for idx in range(N):
-                batch_id = inds[idx]
-                local_fbo_feat[idx] = fbo_feat[batch_id][torch.sum(
-                    inds[:idx] == batch_id)]
-            # [N, C + 512 + 512]
-            out = torch.cat([out, local_fbo_feat.to(x.device)], dim=1)
+        # if self.with_local:
+        #     local_fbo_feat = torch.empty(N, global_fbo_feat.size(-1))
+        #     for idx in range(N):
+        #         batch_id = inds[idx]
+        #         local_fbo_feat[idx] = fbo_feat[batch_id][torch.sum(
+        #             inds[:idx] == batch_id)]
+        #     # [N, C + 512 + 512]
+        #     out = torch.cat([out, local_fbo_feat.to(x.device)], dim=1)
 
         return out.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
