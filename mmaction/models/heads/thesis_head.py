@@ -106,7 +106,7 @@ class FBOThesis(nn.Module):
         self.spatial_attn = nn.MultiheadAttention(latent_channels, num_heads=8)
         self.ffn_norm = nn.LayerNorm(latent_channels)
         self.ffn_layers = nn.Sequential(
-            nn.Linear(512, 512), nn.ReLU(inplace=True), nn.Dropout(p=0.1),
+            nn.Linear(512, 512), nn.ReLU(), nn.Dropout(p=0.1),
             nn.Linear(512, 512))
 
     def init_weights(self, pretrained=None):
