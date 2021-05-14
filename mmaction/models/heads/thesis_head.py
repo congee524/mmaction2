@@ -139,7 +139,7 @@ class FBOThesis(nn.Module):
         res_lt_feat = rearrange(res_lt_feat, '(n k) t c -> n (t k) c', n=N)
         res_lt_feat = self.temporal_fc(res_lt_feat)
 
-        lt_feat += res_lt_feat
+        lt_feat = lt_feat + res_lt_feat
 
         # TODO: add spatial position embedding
 
@@ -149,7 +149,7 @@ class FBOThesis(nn.Module):
         lt_feat = self.lt_feat_norm(lt_feat).permute(1, 0, 2)
         res_fbo_feat = self.spatial_attn(st_feat, lt_feat, lt_feat)[0]
         res_fbo_feat = self.drop_path(res_fbo_feat.squeeze(0))
-        fbo_feat += res_fbo_feat
+        fbo_feat = fbo_feat + res_fbo_feat
 
         fbo_feat = fbo_feat + self.drop_path(
             self.ffn_layers(self.ffn_norm(fbo_feat)))
